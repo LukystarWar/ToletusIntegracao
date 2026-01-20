@@ -1,0 +1,6 @@
+@Toletus.IntegracaoServer_HostAddress = http://localhost:5091
+
+GET {{Toletus.IntegracaoServer_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

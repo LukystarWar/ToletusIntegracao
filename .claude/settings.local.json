@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(\"c:\\xampp\\mysql\\bin\\mysql.exe\":*)",
+      "Bash(dotnet build:*)",
+      "Bash(dotnet script:*)",
+      "Bash(timeout 10 dotnet run:*)",
+      "Bash(find \"c:\\\\xampp\\\\htdocs\\\\academia\\\\app\\\\Modules\" -name \"Models\" -type d -exec bash -c 'echo \"\"Directory: {}\"\"; ls \"\"{}\"\"' ;)",
+      "Bash(xargs ls:*)",
+      "Bash(git remote remove:*)",
+      "Bash(git remote add:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nProjeto inicial de integração Toletus LiteNet2\n\n- Demo ConsoleApp para integração com placa LiteNet2\n- Servidor de integração ASP.NET Core com suporte a MySQL\n- Controllers para acesso e integração ControlID\n- Documentação completa de instalação e deploy\n- Scripts SQL para banco de dados\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)",
+      "Bash(git reset:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

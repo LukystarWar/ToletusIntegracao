@@ -1,62 +1,120 @@
-# LiteNet2 - Exemplo de Integração
+# Toletus Integração - JR Academia
 
-Aplicação **C# ConsoleApp** de exemplo para integração com a placa **Toletus LiteNet2**.
+Módulo de integração para controle de acesso da **JR Academia** (CT de Jiu Jitsu), conectando a catraca **Toletus LiteNet2** com o leitor facial **Control iD iDFace**.
 
----
+## Funcionalidades
 
-## Recursos
+- **Reconhecimento facial** via Control iD iDFace
+- **Liberação automática** da catraca Toletus LiteNet2
+- **Validação de mensalidade** integrada ao banco MySQL
+- **Controle de instrutores e alunos** com regras diferenciadas
+- **Logs de acesso** para auditoria
+- **Execução como serviço Windows**
 
-- **Software Gerenciador Toletus LiteNet2:**  
-  [📥 Download do Gerenciador LiteNet2](https://generic-spaces.actuar.cloud/suporte/Gerenciador%20Litenet%202.rar)
-
-- **Manual de Integração da Placa Toletus LiteNet2:**  
-  [📄 Manual de Integração no GitHub](https://github.com/Toletus/LiteNet2-ManuaisDeIntegracao)
-
----
-
-# Mudança na resposta ao comando `prc`(procura)  – Versão V2.3.1 R0
-
-A partir da versão **V2.3.1 R0**, o retorno à aplicação (`response` da catraca) ao comando `prc`(procura) `request` passou a incluir o **IP do computador conectado**.
-
-## Formato Anterior
-```text
-TOLETUS LiteNet2@[ID]
-```
-
-## Novo Formato
-```text
-TOLETUS LiteNet2@[ID] c=[IP do computador conectado]
-```
-
-- Se o dispositivo estiver **conectado**, será exibido o respectivo **IP**.
-- Caso contrário, será exibida a palavra: **none**
----
-
-## Exemplo no Código
-
-Na classe `LiteNetUtil`, método `OnUdpResponse`:
-
-1. **Captura do ID**
-    - Na primeira linha, é utilizada uma expressão regular (`regex`) que busca na variável `device` um padrão contendo `@` seguido de dígitos (`\d+`).
-    - Esses dígitos são capturados para posterior processamento.
-
-2. **Conversão para UInt16**
-    - Na segunda linha, os dígitos capturados são extraídos e convertidos para um número inteiro de 16 bits (`Int16`), e em seguida para `UInt16`.
-    - Isso permite identificar corretamente o **ID do dispositivo**.
-
-```csharp
-// Captura os dígitos após o '@'
-var match = Regex.Match(device, @"@(\d+)");
-var id = (UInt16)Convert.ToInt16(m.Groups[1].Value);
+## Arquitetura
 
 ```
+┌─────────────────┐     HTTP POST      ┌──────────────────────┐     TCP/IP     ┌─────────────────┐
+│   iDFace        │ ─────────────────► │  Servidor Integração │ ─────────────► │  Catraca        │
+│   (192.168.18.x)│   Notificação      │  (ASP.NET Core)      │   Comandos     │  LiteNet2       │
+└─────────────────┘                    └──────────────────────┘                │  (192.168.18.200)
+                                               │                               └─────────────────┘
+                                               │
+                                               ▼
+                                       ┌──────────────────┐
+                                       │   MySQL          │
+                                       │   (academia)     │
+                                       │   - alunos       │
+                                       │   - matriculas   │
+                                       │   - pagamentos   │
+                                       │   - instrutores  │
+                                       └──────────────────┘
+```
+
+## Fluxo de Acesso
+
+1. Pessoa aproxima o rosto do iDFace
+2. iDFace reconhece e envia notificação HTTP ao servidor
+3. Servidor consulta MySQL para validar:
+   - **Instrutores** (ID >= 10000): Verifica se está ativo
+   - **Alunos** (ID < 10000): Verifica matrícula ativa + mensalidade em dia
+4. Se autorizado → Libera catraca
+5. Se negado → Registra log (mensalidade vencida, inativo, etc.)
+
+## Requisitos
+
+- .NET 10.0
+- MySQL 8.0+
+- Catraca Toletus LiteNet2
+- Leitor Facial Control iD iDFace
+
+## Configuração
+
+### appsettings.json
+
+```json
+{
+  "Urls": "http://0.0.0.0:5000",
+  "Catraca": {
+    "IP": "192.168.18.200"
+  },
+  "ConnectionStrings": {
+    "MySQL": "Server=localhost;Port=3306;Database=academia;Uid=root;Pwd=;"
+  }
+}
+```
+
+### Configurar iDFace
+
+No painel do iDFace, configurar notificações HTTP para apontar ao servidor:
+- **URL:** `http://[IP_SERVIDOR]:5000/`
+- **Método:** POST
+
+## Executar
+
+### Desenvolvimento
+
+```bash
+dotnet run --project src/Toletus.IntegracaoServer/Toletus.IntegracaoServer.csproj
+```
+
+### Produção (Windows Service)
+
+```bash
+# Publicar
+dotnet publish src/Toletus.IntegracaoServer -c Release -o C:\Toletus
+
+# Instalar serviço
+sc create "ToletusIntegracao" binPath="C:\Toletus\Toletus.IntegracaoServer.exe"
+sc start ToletusIntegracao
+```
+
+## Estrutura do Projeto
+
+```
+├── src/
+│   └── Toletus.IntegracaoServer/     # Servidor principal ASP.NET Core
+│       ├── Controllers/              # Endpoints HTTP
+│       ├── Services/
+│       │   ├── CatracaService.cs     # Comunicação com LiteNet2
+│       │   └── MensalidadeService.cs # Validação de acesso (MySQL)
+│       └── Program.cs
+├── database/                          # Scripts SQL
+├── docs/                              # Documentação detalhada
+└── Demo/                              # Console app de testes
+```
+
+## Documentação
+
+- [Guia de Instalação](docs/GUIA_INSTALACAO_PRODUCAO.md)
+- [Integração MySQL](docs/INTEGRACAO_MYSQL.md)
+- [Manual da Funcionária](docs/MANUAL_FUNCIONARIA.md)
+- [Quick Start](docs/QUICK_START.md)
+
+## Licença
+
+Uso exclusivo JR Academia - CT de Jiu Jitsu.
 
 ---
 
-## Exemplos de Retorno
-
-| Situação                  | Retorno                                          | Versão       | 
-|---------------------------|--------------------------------------------------|--------------|
-| Dispositivo conectado     | `TOLETUS LiteNet2@12 c=192.168.0.10`              | V2.3.1 R0    |
-| Dispositivo desconectado  | `TOLETUS LiteNet2@12 c=none`                      | V2.3.1 R0    |
-| Dispositivo conectado ou  desconectado| `TOLETUS LiteNet2@12`                      | <= V2.2.2 R0 |
+Desenvolvido com base na SDK [Toletus LiteNet2](https://github.com/Toletus/litenet2-exemplointegracao).
