@@ -131,6 +131,29 @@ app.MapPost("/", async (HttpContext context) =>
     }
 });
 
+// Catch-all para qualquer rota .fcgi não implementada
+app.Map("/{**path}", async (HttpContext context, string path) =>
+{
+    var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+
+    // Ler body se houver
+    string body = "";
+    if (context.Request.ContentLength > 0)
+    {
+        context.Request.EnableBuffering();
+        using var reader = new StreamReader(context.Request.Body);
+        body = await reader.ReadToEndAsync();
+    }
+
+    logger.LogWarning("⚠️ ENDPOINT NÃO IMPLEMENTADO: {Method} /{Path}", context.Request.Method, path);
+    logger.LogWarning("   Body: {Body}", string.IsNullOrEmpty(body) ? "(vazio)" : body);
+    logger.LogWarning("   Query: {Query}", context.Request.QueryString);
+
+    // Retornar resposta genérica para não quebrar o iDFace
+    context.Response.ContentType = "application/json";
+    return Results.Content("true", "application/json");
+});
+
 Console.WriteLine("=== SERVIDOR DE INTEGRAÇÃO ===");
 Console.WriteLine("Catraca LiteNet2 + Leitor Facial Control iD");
 Console.WriteLine("Aguardando notificações...");

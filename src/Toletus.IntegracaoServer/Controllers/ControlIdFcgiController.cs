@@ -26,6 +26,7 @@ public class ControlIdFcgiController : ControllerBase
 
     /// <summary>
     /// CRITICAL: Session validation - Called when iDFace tests connection
+    /// Deve retornar simplesmente "true" conforme documentação Control iD
     /// </summary>
     [HttpPost("/session_is_valid.fcgi")]
     [HttpGet("/session_is_valid.fcgi")]
@@ -34,7 +35,7 @@ public class ControlIdFcgiController : ControllerBase
         _logger.LogInformation("✅ SESSION VALIDATION requested by iDFace");
 
         Response.Headers["Content-Type"] = "application/json";
-        return Ok(new { session_is_valid = true });
+        return Content("true", "application/json");
     }
 
     /// <summary>
@@ -138,14 +139,43 @@ public class ControlIdFcgiController : ControllerBase
                 _catracaService.LiberarEntrada();
 
                 Response.Headers["Content-Type"] = "application/json";
-                return Ok(new { result = 1 }); // 1 = authorized
+                // Formato esperado pelo iDFace: event 7 = Access Granted
+                return Ok(new
+                {
+                    result = new
+                    {
+                        @event = 7, // Access Granted
+                        user_id = userId,
+                        user_name = userName ?? "",
+                        user_image = false,
+                        portal_id = 1,
+                        actions = new[] { new { action = "door", parameters = "door=1" } },
+                        message = mensagem
+                    }
+                });
             }
             else
             {
                 _logger.LogWarning("❌ ACCESS DENIED: {Message}", mensagem);
 
+                // Sinalizar acesso negado (LED vermelho por 3s) - fire-and-forget para não bloquear resposta
+                _ = Task.Run(() => _catracaService.SinalizarAcessoNegadoAsync(3000));
+
                 Response.Headers["Content-Type"] = "application/json";
-                return Ok(new { result = 0, message = mensagem }); // 0 = denied
+                // Formato esperado pelo iDFace: event 6 = Access Denied
+                return Ok(new
+                {
+                    result = new
+                    {
+                        @event = 6, // Access Denied
+                        user_id = userId,
+                        user_name = userName ?? "",
+                        user_image = false,
+                        portal_id = 1,
+                        actions = Array.Empty<object>(),
+                        message = mensagem
+                    }
+                });
             }
         }
         catch (Exception ex)
@@ -158,7 +188,7 @@ public class ControlIdFcgiController : ControllerBase
     }
 
     /// <summary>
-    /// CRITICAL: Device heartbeat/keepalive - iDFace expects specific response
+    /// CRITICAL: Device heartbeat/keepalive - iDFace expects "true" response
     /// </summary>
     [HttpPost("/device_is_alive.fcgi")]
     [HttpGet("/device_is_alive.fcgi")]
@@ -167,7 +197,7 @@ public class ControlIdFcgiController : ControllerBase
         _logger.LogInformation("💓 Heartbeat from iDFace");
 
         Response.Headers["Content-Type"] = "application/json";
-        return Ok(new { alive = true });
+        return Content("true", "application/json");
     }
 
     /// <summary>

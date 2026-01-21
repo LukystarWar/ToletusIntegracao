@@ -29,7 +29,7 @@ REM Publicar aplicacao
 echo.
 echo Publicando aplicacao...
 cd /d "%~dp0"
-dotnet publish src\Toletus.IntegracaoServer\Toletus.IntegracaoServer.csproj -c Release -o "C:\ToletusIntegracao"
+dotnet publish src\Toletus.IntegracaoServer\Toletus.IntegracaoServer.csproj -c Release -o "C:\Servicos\ToletusIntegracaoServer"
 
 if %errorLevel% neq 0 (
     echo ERRO: Falha ao publicar
@@ -40,7 +40,7 @@ if %errorLevel% neq 0 (
 REM Criar servico
 echo.
 echo Criando servico Windows...
-sc create ToletusIntegracaoServer binPath= "C:\ToletusIntegracao\Toletus.IntegracaoServer.exe" start= auto DisplayName= "Toletus Integration Server"
+sc create ToletusIntegracaoServer binPath= "C:\Servicos\ToletusIntegracaoServer\Toletus.IntegracaoServer.exe" start= auto DisplayName= "Toletus Integration Server"
 
 if %errorLevel% neq 0 (
     echo ERRO: Falha ao criar servico
