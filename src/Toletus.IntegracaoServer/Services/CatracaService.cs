@@ -68,14 +68,18 @@ public class CatracaService : IHostedService, IDisposable
     /// </summary>
     public void LiberarEntrada()
     {
+        _logger.LogInformation("🚪 LiberarEntrada() chamado - IsConnected: {IsConnected}, Catraca: {Catraca}",
+            _isConnected, _catraca != null ? "OK" : "NULL");
+
         if (!_isConnected || _catraca == null)
         {
-            _logger.LogWarning("Tentativa de liberar catraca desconectada");
+            _logger.LogWarning("⚠️ Tentativa de liberar catraca desconectada");
             return;
         }
 
-        _logger.LogInformation("Liberando entrada da catraca...");
+        _logger.LogInformation("✅ Enviando comando ReleaseEntry para catraca...");
         _catraca.Send(Commands.ReleaseEntry);
+        _logger.LogInformation("✅ Comando enviado!");
     }
 
     /// <summary>

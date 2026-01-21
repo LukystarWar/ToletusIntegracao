@@ -2,6 +2,9 @@ using Toletus.IntegracaoServer.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Forçar URL para aceitar conexões externas
+builder.WebHost.UseUrls("http://0.0.0.0:5000");
+
 // Configurar para rodar como Windows Service
 builder.Host.UseWindowsService();
 
@@ -26,6 +29,30 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+// MIDDLEWARE DE DEBUG - Loga TODAS as requisições
+app.Use(async (context, next) =>
+{
+    var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+
+    logger.LogInformation("═══════════════════════════════════════════════════");
+    logger.LogInformation("📥 {Method} {Path}{Query}",
+        context.Request.Method,
+        context.Request.Path,
+        context.Request.QueryString);
+    logger.LogInformation("Content-Type: {ContentType}", context.Request.ContentType ?? "(none)");
+
+    // Log headers importantes
+    foreach (var header in context.Request.Headers)
+    {
+        if (header.Key.StartsWith("X-") || header.Key == "User-Agent" || header.Key == "Host")
+        {
+            logger.LogInformation("Header {Key}: {Value}", header.Key, header.Value);
+        }
+    }
+
+    await next();
+});
 
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())

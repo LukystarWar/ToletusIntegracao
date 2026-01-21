@@ -1,63 +1,70 @@
 @echo off
-REM Windows Service Installation Script for Toletus Integration Server
-REM Run this as Administrator
+REM Toletus Integration Server - Instalador de Servico Windows
+REM Executar como Administrador
 
 echo ============================================
-echo Toletus Integration Server - Service Setup
+echo  Toletus Integration Server - JR Academia
 echo ============================================
 echo.
 
-REM Check for admin privileges
+REM Verificar privilegios de admin
 net session >nul 2>&1
 if %errorLevel% neq 0 (
-    echo ERROR: This script must be run as Administrator!
-    echo Right-click and select "Run as Administrator"
+    echo ERRO: Execute como Administrador!
     pause
     exit /b 1
 )
 
-echo Step 1: Publishing application...
+REM Parar servico se existir
+echo Parando servico existente...
+sc stop ToletusIntegracaoServer >nul 2>&1
+timeout /t 2 /nobreak >nul
+
+REM Remover servico se existir
+echo Removendo servico antigo...
+sc delete ToletusIntegracaoServer >nul 2>&1
+timeout /t 2 /nobreak >nul
+
+REM Publicar aplicacao
+echo.
+echo Publicando aplicacao...
 cd /d "%~dp0"
-dotnet publish src\Toletus.IntegracaoServer\Toletus.IntegracaoServer.csproj -c Release -o "C:\ToletusIntegracao" --self-contained false
+dotnet publish src\Toletus.IntegracaoServer\Toletus.IntegracaoServer.csproj -c Release -o "C:\ToletusIntegracao"
 
 if %errorLevel% neq 0 (
-    echo ERROR: Failed to publish application
+    echo ERRO: Falha ao publicar
     pause
     exit /b 1
 )
 
+REM Criar servico
 echo.
-echo Step 2: Creating Windows Service...
+echo Criando servico Windows...
 sc create ToletusIntegracaoServer binPath= "C:\ToletusIntegracao\Toletus.IntegracaoServer.exe" start= auto DisplayName= "Toletus Integration Server"
 
 if %errorLevel% neq 0 (
-    echo ERROR: Failed to create service
+    echo ERRO: Falha ao criar servico
     pause
     exit /b 1
 )
 
-echo.
-echo Step 3: Setting service description...
-sc description ToletusIntegracaoServer "Integration server for LiteNet2 turnstile and Control iD iDFace facial recognition"
+REM Configurar descricao
+sc description ToletusIntegracaoServer "Servidor de integracao catraca LiteNet2 + iDFace - JR Academia"
 
+REM Iniciar servico
 echo.
-echo Step 4: Starting service...
+echo Iniciando servico...
 sc start ToletusIntegracaoServer
 
 echo.
 echo ============================================
-echo Service installed successfully!
+echo  Servico instalado com sucesso!
 echo ============================================
 echo.
-echo Service Name: ToletusIntegracaoServer
-echo Install Path: C:\ToletusIntegracao
-echo.
-echo To manage the service:
-echo - Start:   sc start ToletusIntegracaoServer
-echo - Stop:    sc stop ToletusIntegracaoServer
-echo - Status:  sc query ToletusIntegracaoServer
-echo - Uninstall: sc delete ToletusIntegracaoServer
-echo.
-echo Or use Windows Services (services.msc)
+echo Comandos uteis:
+echo   sc stop ToletusIntegracaoServer
+echo   sc start ToletusIntegracaoServer
+echo   sc query ToletusIntegracaoServer
+echo   sc delete ToletusIntegracaoServer
 echo.
 pause

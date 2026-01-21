@@ -27,8 +27,8 @@ public class ControlIdFcgiController : ControllerBase
     /// <summary>
     /// CRITICAL: Session validation - Called when iDFace tests connection
     /// </summary>
-    [HttpPost("session_is_valid.fcgi")]
-    [HttpGet("session_is_valid.fcgi")]
+    [HttpPost("/session_is_valid.fcgi")]
+    [HttpGet("/session_is_valid.fcgi")]
     public IActionResult SessionIsValid()
     {
         _logger.LogInformation("✅ SESSION VALIDATION requested by iDFace");
@@ -40,7 +40,7 @@ public class ControlIdFcgiController : ControllerBase
     /// <summary>
     /// CRITICAL: User identified - Called when face is recognized
     /// </summary>
-    [HttpPost("new_user_identified.fcgi")]
+    [HttpPost("/new_user_identified.fcgi")]
     public async Task<IActionResult> NewUserIdentified()
     {
         try
@@ -158,20 +158,22 @@ public class ControlIdFcgiController : ControllerBase
     }
 
     /// <summary>
-    /// OPTIONAL: Device heartbeat/keepalive
+    /// CRITICAL: Device heartbeat/keepalive - iDFace expects specific response
     /// </summary>
-    [HttpPost("device_is_alive.fcgi")]
-    [HttpGet("device_is_alive.fcgi")]
+    [HttpPost("/device_is_alive.fcgi")]
+    [HttpGet("/device_is_alive.fcgi")]
     public IActionResult DeviceIsAlive()
     {
         _logger.LogInformation("💓 Heartbeat from iDFace");
-        return Ok();
+
+        Response.Headers["Content-Type"] = "application/json";
+        return Ok(new { alive = true });
     }
 
     /// <summary>
     /// OPTIONAL: User image capture
     /// </summary>
-    [HttpPost("new_user_image.fcgi")]
+    [HttpPost("/new_user_image.fcgi")]
     public IActionResult NewUserImage()
     {
         _logger.LogInformation("📸 User image captured by iDFace");
@@ -183,8 +185,8 @@ public class ControlIdFcgiController : ControllerBase
     /// <summary>
     /// Login endpoint (if iDFace needs authentication)
     /// </summary>
-    [HttpPost("login.fcgi")]
-    [HttpGet("login.fcgi")]
+    [HttpPost("/login.fcgi")]
+    [HttpGet("/login.fcgi")]
     public IActionResult Login([FromForm] string? login, [FromForm] string? password)
     {
         _logger.LogInformation("🔐 Login attempt - User: {Login}", login ?? "unknown");
