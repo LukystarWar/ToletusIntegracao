@@ -43,6 +43,10 @@ public class CatracaService : IHostedService, IDisposable
             _catraca.Connect();
             _logger.LogInformation("Conectado à catraca em {IP}", _catracaIp);
             _isConnected = true;
+
+            // Configurar modo padrão: entrada controlada, saída livre
+            _catraca.Send(Commands.SetFlowControlExtended, 0);
+            _logger.LogInformation("🔵 Catraca configurada: entrada controlada, saída livre");
         }
         catch (Exception ex)
         {
@@ -111,15 +115,15 @@ public class CatracaService : IHostedService, IDisposable
 
         _logger.LogInformation("🔴 Sinalizando acesso negado (LED vermelho por {Duracao}ms)...", duracaoMs);
 
-        // Modo 8 = EntryBlockedWithExitBlocked (LED vermelho)
+        // Modo 8 = EntryBlockedWithExitBlocked (LED vermelho temporário)
         _catraca.Send(Commands.SetFlowControlExtended, 8);
 
         await Task.Delay(duracaoMs);
 
-        // Modo 2 = EntryControlledWithExitControlled (LED azul - estado normal)
-        _catraca.Send(Commands.SetFlowControlExtended, 2);
+        // Modo 0 = EntryControlledWithExitFree (entrada controlada, saída livre)
+        _catraca.Send(Commands.SetFlowControlExtended, 0);
 
-        _logger.LogInformation("🔴 Acesso negado sinalizado, voltando ao estado normal");
+        _logger.LogInformation("🔵 Voltando ao estado normal (entrada controlada, saída livre)");
     }
 
     /// <summary>
@@ -134,17 +138,17 @@ public class CatracaService : IHostedService, IDisposable
             return;
         }
 
-        _logger.LogInformation("Sinalizando acesso negado (LED vermelho por {Duracao}ms)...", duracaoMs);
+        _logger.LogInformation("🔴 Sinalizando acesso negado (LED vermelho por {Duracao}ms)...", duracaoMs);
 
-        // Modo 8 = EntryBlockedWithExitBlocked (LED vermelho)
+        // Modo 8 = EntryBlockedWithExitBlocked (LED vermelho temporário)
         _catraca.Send(Commands.SetFlowControlExtended, (byte)8);
 
         Thread.Sleep(duracaoMs);
 
-        // Modo 2 = EntryControlledWithExitControlled (LED azul - estado normal)
-        _catraca.Send(Commands.SetFlowControlExtended, (byte)2);
+        // Modo 0 = EntryControlledWithExitFree (entrada controlada, saída livre)
+        _catraca.Send(Commands.SetFlowControlExtended, (byte)0);
 
-        _logger.LogInformation("Acesso negado sinalizado, voltando ao estado normal");
+        _logger.LogInformation("🔵 Voltando ao estado normal (entrada controlada, saída livre)");
     }
 
     /// <summary>
