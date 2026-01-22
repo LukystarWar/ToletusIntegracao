@@ -51,6 +51,13 @@ if %errorLevel% neq 0 (
 REM Configurar descricao
 sc description ToletusIntegracaoServer "Servidor de integracao catraca LiteNet2 + iDFace - JR Academia"
 
+REM Configurar Firewall
+echo.
+echo Configurando Firewall...
+netsh advfirewall firewall delete rule name="Toletus Integration Server" >nul 2>&1
+netsh advfirewall firewall add rule name="Toletus Integration Server" dir=in action=allow protocol=TCP localport=5000 enable=yes
+netsh advfirewall firewall add rule name="Toletus Integration Server" dir=out action=allow protocol=TCP localport=5000 enable=yes
+
 REM Iniciar servico
 echo.
 echo Iniciando servico...
