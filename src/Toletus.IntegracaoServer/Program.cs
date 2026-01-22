@@ -60,11 +60,12 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-// Servir arquivos estáticos (HTML, CSS, JS)
+app.UseCors();
+
+// Servir arquivos estáticos (HTML, CSS, JS) - ANTES das rotas
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
-app.UseCors();
 app.MapControllers();
 
 // Rota raiz POST para notificações do iDFace
