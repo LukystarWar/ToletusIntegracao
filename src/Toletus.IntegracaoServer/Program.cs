@@ -60,13 +60,14 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+// Servir arquivos estáticos (HTML, CSS, JS)
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.UseCors();
 app.MapControllers();
 
-// Rota raiz - GET para teste de conexão do Control iD (resposta simples)
-app.MapGet("/", () => Results.Ok());
-
-// Rota raiz - POST para capturar notificações do iDFace
+// Rota raiz POST para notificações do iDFace
 app.MapPost("/", async (HttpContext context) =>
 {
     var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
@@ -80,7 +81,6 @@ app.MapPost("/", async (HttpContext context) =>
 
         logger.LogInformation("POST na raiz recebido do iDFace: {Body}", body);
 
-        // Tentar processar como notificação
         if (!string.IsNullOrWhiteSpace(body))
         {
             var notification = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(body);
@@ -116,7 +116,6 @@ app.MapPost("/", async (HttpContext context) =>
                 logger.LogWarning("❌ ACESSO NEGADO ({Tipo}): {Mensagem}", tipoUsuario ?? "desconhecido", mensagem);
             }
 
-            // Registrar log de acesso
             await mensalidadeService.RegistrarLog(userId, userName, autorizado, mensagem, tipoUsuario);
 
             return Results.Ok(new { success = true, authorized = autorizado, message = mensagem, userType = tipoUsuario });
@@ -131,27 +130,67 @@ app.MapPost("/", async (HttpContext context) =>
     }
 });
 
-// Catch-all para qualquer rota .fcgi não implementada
-app.Map("/{**path}", async (HttpContext context, string path) =>
+// Rota fallback para notificações iDFace (qualquer POST não capturado)
+app.MapPost("/{**path}", async (HttpContext context, string path) =>
 {
     var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+    var catracaService = context.RequestServices.GetRequiredService<CatracaService>();
+    var mensalidadeService = context.RequestServices.GetRequiredService<MensalidadeService>();
 
-    // Ler body se houver
-    string body = "";
-    if (context.Request.ContentLength > 0)
+    try
     {
-        context.Request.EnableBuffering();
         using var reader = new StreamReader(context.Request.Body);
-        body = await reader.ReadToEndAsync();
+        var body = await reader.ReadToEndAsync();
+
+        logger.LogInformation("POST recebido em /{Path}: {Body}", path, body);
+
+        if (!string.IsNullOrWhiteSpace(body))
+        {
+            var notification = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(body);
+
+            long userId = 0;
+            string? userName = null;
+
+            if (notification.TryGetProperty("user_id", out var userIdProp))
+                userId = userIdProp.GetInt64();
+            else if (notification.TryGetProperty("userId", out userIdProp))
+                userId = userIdProp.GetInt64();
+            else if (notification.TryGetProperty("id", out userIdProp))
+                userId = userIdProp.GetInt64();
+
+            if (notification.TryGetProperty("user_name", out var userNameProp))
+                userName = userNameProp.GetString();
+            else if (notification.TryGetProperty("userName", out userNameProp))
+                userName = userNameProp.GetString();
+            else if (notification.TryGetProperty("name", out userNameProp))
+                userName = userNameProp.GetString();
+
+            logger.LogInformation("Reconhecido - UserId: {UserId}, UserName: {UserName}", userId, userName);
+
+            var (autorizado, mensagem, tipoUsuario) = await mensalidadeService.ValidarAcesso(userId, userName);
+
+            if (autorizado)
+            {
+                logger.LogInformation("✅ ACESSO AUTORIZADO ({Tipo}): {Mensagem}", tipoUsuario, mensagem);
+                catracaService.LiberarEntrada();
+            }
+            else
+            {
+                logger.LogWarning("❌ ACESSO NEGADO ({Tipo}): {Mensagem}", tipoUsuario ?? "desconhecido", mensagem);
+            }
+
+            await mensalidadeService.RegistrarLog(userId, userName, autorizado, mensagem, tipoUsuario);
+
+            return Results.Ok(new { success = true, authorized = autorizado, message = mensagem, userType = tipoUsuario });
+        }
+
+        return Results.Ok(new { success = true, message = "Requisição recebida" });
     }
-
-    logger.LogWarning("⚠️ ENDPOINT NÃO IMPLEMENTADO: {Method} /{Path}", context.Request.Method, path);
-    logger.LogWarning("   Body: {Body}", string.IsNullOrEmpty(body) ? "(vazio)" : body);
-    logger.LogWarning("   Query: {Query}", context.Request.QueryString);
-
-    // Retornar resposta genérica para não quebrar o iDFace
-    context.Response.ContentType = "application/json";
-    return Results.Content("true", "application/json");
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Erro ao processar POST");
+        return Results.Ok(new { success = true });
+    }
 });
 
 Console.WriteLine("=== SERVIDOR DE INTEGRAÇÃO ===");

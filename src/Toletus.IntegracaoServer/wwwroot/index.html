@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JR Academia - Controle de Catraca</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 16px;
+        }
+
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        button {
+            padding: 25px;
+            font-size: 20px;
+            font-weight: bold;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: white;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .btn-entrada {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .btn-saida {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .btn-status {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            font-size: 16px;
+            padding: 15px;
+        }
+
+        .status-container {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+        }
+
+        .status-container.show {
+            display: block;
+        }
+
+        .status-message {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .status-success {
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .status-error {
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            color: #999;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>JR Academia</h1>
+        <p class="subtitle">Controle de Catraca</p>
+
+        <div class="button-group">
+            <button class="btn-entrada" onclick="liberarEntrada()">
+                🚪 LIBERAR ENTRADA
+            </button>
+
+            <button class="btn-saida" onclick="liberarSaida()">
+                🚶 LIBERAR SAÍDA
+            </button>
+
+            <button class="btn-status" onclick="verificarStatus()">
+                📊 Verificar Status
+            </button>
+        </div>
+
+        <div id="statusContainer" class="status-container">
+            <div id="statusMessage" class="status-message"></div>
+        </div>
+
+        <div class="footer">
+            Toletus Integration Server
+        </div>
+    </div>
+
+    <script>
+        function showStatus(message, isSuccess) {
+            const container = document.getElementById('statusContainer');
+            const messageEl = document.getElementById('statusMessage');
+
+            container.className = 'status-container show';
+            messageEl.className = 'status-message ' + (isSuccess ? 'status-success' : 'status-error');
+            messageEl.innerHTML = message;
+
+            setTimeout(() => {
+                container.className = 'status-container';
+            }, 3000);
+        }
+
+        function showLoading(button) {
+            button.disabled = true;
+            button.innerHTML += '<span class="loading"></span>';
+        }
+
+        function hideLoading(button, originalText) {
+            button.disabled = false;
+            button.innerHTML = originalText;
+        }
+
+        async function liberarEntrada() {
+            const button = event.target;
+            const originalText = button.innerHTML;
+            showLoading(button);
+
+            try {
+                const response = await fetch('/api/access/release/entry', {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showStatus('✅ Entrada liberada com sucesso!', true);
+                } else {
+                    showStatus('❌ Erro ao liberar entrada', false);
+                }
+            } catch (error) {
+                showStatus('❌ Erro de conexão: ' + error.message, false);
+            } finally {
+                hideLoading(button, originalText);
+            }
+        }
+
+        async function liberarSaida() {
+            const button = event.target;
+            const originalText = button.innerHTML;
+            showLoading(button);
+
+            try {
+                const response = await fetch('/api/access/release/exit', {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showStatus('✅ Saída liberada com sucesso!', true);
+                } else {
+                    showStatus('❌ Erro ao liberar saída', false);
+                }
+            } catch (error) {
+                showStatus('❌ Erro de conexão: ' + error.message, false);
+            } finally {
+                hideLoading(button, originalText);
+            }
+        }
+
+        async function verificarStatus() {
+            const button = event.target;
+            const originalText = button.innerHTML;
+            showLoading(button);
+
+            try {
+                const response = await fetch('/api/access/status');
+                const data = await response.json();
+
+                const statusText = data.catracaConnected
+                    ? '✅ Catraca Conectada'
+                    : '⚠️ Catraca Desconectada';
+
+                showStatus(statusText, data.catracaConnected);
+            } catch (error) {
+                showStatus('❌ Erro ao verificar status: ' + error.message, false);
+            } finally {
+                hideLoading(button, originalText);
+            }
+        }
+    </script>
+</body>
+</html>
