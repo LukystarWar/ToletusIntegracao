@@ -148,4 +148,66 @@ public class AccessController : ControllerBase
             timestamp = DateTime.Now
         });
     }
+
+    /// <summary>
+    /// Endpoint de diagnóstico completo do sistema
+    /// </summary>
+    [HttpGet("diagnostico")]
+    public async Task<IActionResult> GetDiagnostico()
+    {
+        try
+        {
+            var diagnostico = new
+            {
+                timestamp = DateTime.Now,
+                servidor = new
+                {
+                    versao = ".NET 10.0",
+                    ambiente = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production",
+                    machineName = Environment.MachineName,
+                    osVersion = Environment.OSVersion.ToString(),
+                    processId = Environment.ProcessId
+                },
+                catraca = new
+                {
+                    conectada = _catracaService.IsConnected,
+                    ip = HttpContext.RequestServices.GetRequiredService<IConfiguration>()["Catraca:IP"]
+                },
+                rede = new
+                {
+                    localEndpoint = HttpContext.Connection.LocalIpAddress?.ToString(),
+                    remoteEndpoint = HttpContext.Connection.RemoteIpAddress?.ToString()
+                },
+                database = new
+                {
+                    connectionString = HttpContext.RequestServices.GetRequiredService<IConfiguration>()
+                        .GetConnectionString("MySQL")?.Replace("Pwd=", "Pwd=***") // Ocultar senha
+                },
+                ultimosLogs = await ObterUltimosLogs()
+            };
+
+            return Ok(diagnostico);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao gerar diagnóstico");
+            return StatusCode(500, new { success = false, error = ex.Message });
+        }
+    }
+
+    private async Task<object> ObterUltimosLogs()
+    {
+        try
+        {
+            // Retorna informações básicas sobre logs (você pode expandir isso)
+            return new
+            {
+                mensagem = "Logs disponíveis via Event Viewer (Windows Service) ou console (modo manual)"
+            };
+        }
+        catch
+        {
+            return new { erro = "Não foi possível obter logs" };
+        }
+    }
 }

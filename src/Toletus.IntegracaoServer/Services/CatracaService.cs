@@ -27,30 +27,57 @@ public class CatracaService : IHostedService, IDisposable
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Iniciando serviço de catraca...");
+        _logger.LogInformation("═══════════════════════════════════════════════════");
+        _logger.LogInformation("🔧 Iniciando serviço de catraca...");
+        _logger.LogInformation("IP configurado: {IP}", _catracaIp);
 
         try
         {
+            _logger.LogInformation("📡 Parseando IP: {IP}", _catracaIp);
             var ip = IPAddress.Parse(_catracaIp);
+
+            _logger.LogInformation("🔌 Criando instância LiteNet2BoardBase...");
             _catraca = new LiteNet2BoardBase(ip);
 
+            _logger.LogInformation("📋 Configurando eventos...");
             // Configurar eventos
             _catraca.OnResponse += HandleResponse;
             _catraca.OnIdentification += HandleIdentification;
             _catraca.OnConnectionStatusChanged += HandleConnectionStatusChanged;
 
+            _logger.LogInformation("🔗 Conectando à catraca em {IP}...", _catracaIp);
             // Conectar
             _catraca.Connect();
-            _logger.LogInformation("Conectado à catraca em {IP}", _catracaIp);
+            _logger.LogInformation("✅ Conectado à catraca em {IP}", _catracaIp);
             _isConnected = true;
 
+            _logger.LogInformation("⚙️ Configurando modo padrão (entrada controlada, saída livre)...");
             // Configurar modo padrão: entrada controlada, saída livre
             _catraca.Send(Commands.SetFlowControlExtended, 0);
             _logger.LogInformation("🔵 Catraca configurada: entrada controlada, saída livre");
+            _logger.LogInformation("═══════════════════════════════════════════════════");
+        }
+        catch (FormatException ex)
+        {
+            _logger.LogError(ex, "❌ ERRO: IP inválido: {IP}", _catracaIp);
+            _logger.LogError("Verifique o appsettings.json - IP deve estar no formato: 192.168.X.X");
+            _isConnected = false;
+        }
+        catch (System.Net.Sockets.SocketException ex)
+        {
+            _logger.LogError(ex, "❌ ERRO DE REDE: Não foi possível conectar à catraca em {IP}", _catracaIp);
+            _logger.LogError("Possíveis causas:");
+            _logger.LogError("  1. Catraca está desligada");
+            _logger.LogError("  2. Catraca não está na rede (verifique: ping {IP})", _catracaIp);
+            _logger.LogError("  3. Firewall bloqueando comunicação UDP");
+            _logger.LogError("  4. IP incorreto no appsettings.json");
+            _isConnected = false;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Erro ao conectar à catraca");
+            _logger.LogError(ex, "❌ ERRO INESPERADO ao conectar à catraca");
+            _logger.LogError("Tipo do erro: {ErrorType}", ex.GetType().Name);
+            _logger.LogError("Mensagem: {Message}", ex.Message);
             _isConnected = false;
         }
 

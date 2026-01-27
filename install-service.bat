@@ -51,6 +51,14 @@ if %errorLevel% neq 0 (
 REM Configurar descricao
 sc description ToletusIntegracaoServer "Servidor de integracao catraca LiteNet2 + iDFace - JR Academia"
 
+REM Configurar recuperacao automatica em caso de falha
+echo Configurando recuperacao automatica...
+sc failure ToletusIntegracaoServer reset= 86400 actions= restart/60000/restart/60000/restart/60000
+
+REM Configurar inicio atrasado para garantir que rede esteja disponivel
+echo Configurando inicio atrasado (delayed-auto)...
+sc config ToletusIntegracaoServer start= delayed-auto
+
 REM Configurar Firewall
 echo.
 echo Configurando Firewall...
