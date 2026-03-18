@@ -111,6 +111,7 @@ public class MensalidadeService
                 mo.nome AS modalidade,
                 mo.valor AS valor_mensalidade,
                 mo.isenta_pagamento,
+                h.horario AS horario_aula,
                 p.data_pagamento AS ultimo_pagamento,
                 p.mes_referencia
             FROM alunos a
@@ -124,6 +125,7 @@ public class MensalidadeService
                 ) m2 ON m1.id = m2.max_id
             ) m ON m.id_aluno = a.id
             INNER JOIN modalidades mo ON mo.id = m.id_modalidade
+            LEFT JOIN horarios h ON h.id = m.id_horario
             LEFT JOIN (
                 SELECT p1.*
                 FROM pagamentos p1
@@ -168,9 +170,33 @@ public class MensalidadeService
         }
 
         // 3. Modalidade isenta de pagamento (ex: Jiu Jitsu Social)
+        // Para modalidades isentas, verificar se está no horário permitido (±30 minutos)
         if (isentoPagamento)
         {
-            _logger.LogInformation("✅ Acesso autorizado para {Nome} - Modalidade {Modalidade} isenta", nome, modalidade);
+            // Buscar horário da matrícula
+            TimeSpan? horarioAula = reader.IsDBNull(reader.GetOrdinal("horario_aula"))
+                ? null
+                : ((MySqlDataReader)reader).GetTimeSpan(reader.GetOrdinal("horario_aula"));
+
+            if (horarioAula.HasValue)
+            {
+                TimeSpan agora = DateTime.Now.TimeOfDay;
+                TimeSpan tolerancia = TimeSpan.FromMinutes(30);
+                TimeSpan inicioPermitido = horarioAula.Value - tolerancia;
+                TimeSpan fimPermitido = horarioAula.Value + tolerancia;
+
+                // Verificar se está fora do horário permitido
+                if (agora < inicioPermitido || agora > fimPermitido)
+                {
+                    string horarioFormatado = horarioAula.Value.ToString(@"hh\:mm");
+                    _logger.LogWarning("❌ Acesso NEGADO para {Nome} ({Modalidade}) - Fora do horário permitido ({Horario})",
+                        nome, modalidade, horarioFormatado);
+                    return (false, $"Acesso permitido apenas às {horarioFormatado} (±30min)", "aluno");
+                }
+            }
+
+            _logger.LogInformation("✅ Acesso autorizado para {Nome} - Modalidade {Modalidade} isenta (horário OK)",
+                nome, modalidade);
             return (true, $"Bem-vindo, {nome}!", "aluno");
         }
 
