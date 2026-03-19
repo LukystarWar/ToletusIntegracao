@@ -169,35 +169,36 @@ public class MensalidadeService
         }
 
         // 3. Modalidade isenta de pagamento (ex: Jiu Jitsu Social)
-        // Para modalidades isentas, verificar se está no horário permitido (±30 minutos)
-        // Lógica: busca TODOS os horários da modalidade do aluno e verifica se o horário atual
-        // está dentro da janela de qualquer um deles. Isso evita o problema de id_horario
-        // apontando para um horário de outra modalidade.
         if (isentoPagamento)
         {
             int idModalidade = reader.GetInt32(reader.GetOrdinal("id_modalidade"));
             reader.Close();
 
-            var horariosDaModalidade = await BuscarHorariosDaModalidade(connection, idModalidade);
-
-            if (horariosDaModalidade.Count > 0)
+            // Apenas o Projeto JR (id=16) tem restrição de horário
+            const int PROJETO_JR_ID = 16;
+            if (idModalidade == PROJETO_JR_ID)
             {
-                TimeSpan agora = DateTime.Now.TimeOfDay;
-                TimeSpan tolerancia = TimeSpan.FromMinutes(30);
+                var horariosDaModalidade = await BuscarHorariosDaModalidade(connection, idModalidade);
 
-                bool dentroDeAlgumHorario = horariosDaModalidade.Any(h =>
+                if (horariosDaModalidade.Count > 0)
                 {
-                    TimeSpan inicio = h - tolerancia;
-                    TimeSpan fim = h + tolerancia;
-                    return agora >= inicio && agora <= fim;
-                });
+                    TimeSpan agora = DateTime.Now.TimeOfDay;
+                    TimeSpan tolerancia = TimeSpan.FromMinutes(30);
 
-                if (!dentroDeAlgumHorario)
-                {
-                    string horariosFormatados = string.Join(", ", horariosDaModalidade.Select(h => h.ToString(@"hh\:mm")));
-                    _logger.LogWarning("❌ Acesso NEGADO para {Nome} ({Modalidade}) - Fora dos horários permitidos ({Horarios})",
-                        nome, modalidade, horariosFormatados);
-                    return (false, $"Acesso permitido apenas nos horários: {horariosFormatados} (±30min)", "aluno");
+                    bool dentroDeAlgumHorario = horariosDaModalidade.Any(h =>
+                    {
+                        TimeSpan inicio = h - tolerancia;
+                        TimeSpan fim = h + tolerancia;
+                        return agora >= inicio && agora <= fim;
+                    });
+
+                    if (!dentroDeAlgumHorario)
+                    {
+                        string horariosFormatados = string.Join(", ", horariosDaModalidade.Select(h => h.ToString(@"hh\:mm")));
+                        _logger.LogWarning("❌ Acesso NEGADO para {Nome} ({Modalidade}) - Fora dos horários permitidos ({Horarios})",
+                            nome, modalidade, horariosFormatados);
+                        return (false, $"Acesso permitido apenas nos horários: {horariosFormatados} (±30min)", "aluno");
+                    }
                 }
             }
 
