@@ -108,10 +108,10 @@ public class MensalidadeService
                 m.id AS matricula_id,
                 m.status AS status_matricula,
                 m.dia_vencimento,
+                mo.id AS id_modalidade,
                 mo.nome AS modalidade,
                 mo.valor AS valor_mensalidade,
                 mo.isenta_pagamento,
-                h.horario AS horario_aula,
                 p.data_pagamento AS ultimo_pagamento,
                 p.mes_referencia
             FROM alunos a
@@ -125,7 +125,6 @@ public class MensalidadeService
                 ) m2 ON m1.id = m2.max_id
             ) m ON m.id_aluno = a.id
             INNER JOIN modalidades mo ON mo.id = m.id_modalidade
-            LEFT JOIN horarios h ON h.id = m.id_horario
             LEFT JOIN (
                 SELECT p1.*
                 FROM pagamentos p1
@@ -171,27 +170,34 @@ public class MensalidadeService
 
         // 3. Modalidade isenta de pagamento (ex: Jiu Jitsu Social)
         // Para modalidades isentas, verificar se está no horário permitido (±30 minutos)
+        // Lógica: busca TODOS os horários da modalidade do aluno e verifica se o horário atual
+        // está dentro da janela de qualquer um deles. Isso evita o problema de id_horario
+        // apontando para um horário de outra modalidade.
         if (isentoPagamento)
         {
-            // Buscar horário da matrícula
-            TimeSpan? horarioAula = reader.IsDBNull(reader.GetOrdinal("horario_aula"))
-                ? null
-                : ((MySqlDataReader)reader).GetTimeSpan(reader.GetOrdinal("horario_aula"));
+            int idModalidade = reader.GetInt32(reader.GetOrdinal("id_modalidade"));
+            reader.Close();
 
-            if (horarioAula.HasValue)
+            var horariosDaModalidade = await BuscarHorariosDaModalidade(connection, idModalidade);
+
+            if (horariosDaModalidade.Count > 0)
             {
                 TimeSpan agora = DateTime.Now.TimeOfDay;
                 TimeSpan tolerancia = TimeSpan.FromMinutes(30);
-                TimeSpan inicioPermitido = horarioAula.Value - tolerancia;
-                TimeSpan fimPermitido = horarioAula.Value + tolerancia;
 
-                // Verificar se está fora do horário permitido
-                if (agora < inicioPermitido || agora > fimPermitido)
+                bool dentroDeAlgumHorario = horariosDaModalidade.Any(h =>
                 {
-                    string horarioFormatado = horarioAula.Value.ToString(@"hh\:mm");
-                    _logger.LogWarning("❌ Acesso NEGADO para {Nome} ({Modalidade}) - Fora do horário permitido ({Horario})",
-                        nome, modalidade, horarioFormatado);
-                    return (false, $"Acesso permitido apenas às {horarioFormatado} (±30min)", "aluno");
+                    TimeSpan inicio = h - tolerancia;
+                    TimeSpan fim = h + tolerancia;
+                    return agora >= inicio && agora <= fim;
+                });
+
+                if (!dentroDeAlgumHorario)
+                {
+                    string horariosFormatados = string.Join(", ", horariosDaModalidade.Select(h => h.ToString(@"hh\:mm")));
+                    _logger.LogWarning("❌ Acesso NEGADO para {Nome} ({Modalidade}) - Fora dos horários permitidos ({Horarios})",
+                        nome, modalidade, horariosFormatados);
+                    return (false, $"Acesso permitido apenas nos horários: {horariosFormatados} (±30min)", "aluno");
                 }
             }
 
@@ -257,6 +263,26 @@ public class MensalidadeService
             : $"Mensalidade vencida desde {vencimentoAtual:dd/MM/yyyy}";
 
         return (autorizado, mensagem, "aluno");
+    }
+
+    /// <summary>
+    /// Busca todos os horários cadastrados para uma modalidade
+    /// </summary>
+    private async Task<List<TimeSpan>> BuscarHorariosDaModalidade(MySqlConnection connection, int idModalidade)
+    {
+        var horarios = new List<TimeSpan>();
+
+        var query = "SELECT horario FROM horarios WHERE id_modalidade = @IdModalidade ORDER BY horario";
+        using var cmd = new MySqlCommand(query, connection);
+        cmd.Parameters.AddWithValue("@IdModalidade", idModalidade);
+
+        using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            horarios.Add(((MySqlDataReader)reader).GetTimeSpan(0));
+        }
+
+        return horarios;
     }
 
     /// <summary>
